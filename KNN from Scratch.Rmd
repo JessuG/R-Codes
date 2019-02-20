@@ -15,8 +15,7 @@ library(caret)
 library(Hmisc)
 ```
 
-#Question 1.1
-Download the data set Glass Identification Database along with its explanation. Note that the data file does not contain header names; you may wish to add those. The description of each column can be found in the data set explanation. This assignment must be completed within an R Markdown Notebook.
+
 ```{r}
 #loading the dataset into the R environment
 #glass <- read.csv("/Users/jess/Documents/Spring 2019/DA5030 - Intro to machine learning and data mining/Week 4- practicum 1/glassdata.csv", header = FALSE)
@@ -26,28 +25,21 @@ names(glass) <- c("id", "ri", "na", "mg", "al", "si", "k", "ca", "ba" ,"fe", "ty
 
 ```
 
-#Question 1.2
-Explore the data set as you see fit and that allows you to get a sense of the data and get comfortable with it.
+
 ```{r}
 #changing the type of the variable "type" from the dataset
 glass$type <- factor(glass$type)
 ```
 
-#Question 1.3
-Create a histogram of the Na column and overlay a normal curve; visually determine whether the data is normally distributed. You may use the code from this tutorial.
+
 ```{r}
 hist(glass$na)
-```
 
-#Question 1.4
-Does the k-NN algorithm require normally distributed data or is it a non-parametric method? Comment on your findings. 
-```{r}
 
 # The kNN algorith is non-parametric because it takes in more training cases, and the training therefore grows and does not stay the same making it parametric. Non-parametric methods do not have a fixed number of parameters and neither does KNN.
 ```
 
-#Question 1.5
-After removing the ID column (column 1), normalize the  columns, except the last one, using z-score standardization. The last column is the glass type and so it is excluded.
+
 ```{r}
 glass <- glass[,!names(glass) %in% c("id")]
 head(glass)
@@ -64,8 +56,7 @@ return((x - min(x)) / (max(x) - min(x)))
 glass_norm <- as.data.frame(lapply(glass[1:9], normalize))
 head(glass_norm)
 ```
-#Question 1.6
-The data set is sorted, so creating a validation data set requires random selection of elements. Create a stratified sample where you randomly select 50% of each of the cases for each glass type to be part of the validation data set. The remaining cases will form the training data set.
+
 ```{r}
 
 set.seed(1)
@@ -78,11 +69,7 @@ test_target_glass <- glass$type[-new]
 
 ```
 
-#Question 1.7
-Implement the k-NN algorithm in R (do not use an implementation of k-NN from a package) and use your algorithm with a k=10 to predict the glass type for the following two cases:
-RI = 1.51721 | 12.53 | 3.48 | 1.39 | 73.39 | 0.60 | 8.55 | 0.00 | Fe = 0.08
-RI = 1.4897 | 12.71 | 1.85 | 1.81 | 72.69 | 0.52 | 10.01 | 0.00 | Fe = 0.02
-Use the whole normalized data set for this; not just the training data set. Note that you need to normalize the values of the new cases the same way as you normalized the original data.
+
 ```{r}
 knn_custom <- function(df, y, x, k) {
 dist <- function(p , q)
@@ -173,9 +160,9 @@ k <- 10
 
 ```
 
-#Question 1.8
-Apply the knn function from the class package with k=14 and redo the cases from Question (7).
+
 ```{r}
+#Applying knn from class package
 # install.packages("class")
 library(class)
 
@@ -185,8 +172,7 @@ library(class)
 (kn_pred_2 <- class::knn(train = glass_norm, test = unknown2, glass$type , k =14, use.all = F))
 ```
 
-#Question 1.9
-Create a plot of k (x-axis) from 2 to 15 versus error rate (percentage of incorrect classifications) using ggplot.
+
 ```{r}
 #creating a dataframe
 knn_res <- data.frame(matrix(rep(NA, 14 * nrow(train_glass)), ncol = 14))
@@ -222,22 +208,19 @@ ggplot(data = error1, mapping = aes(x = k, y = e))+
   )
 
 ```
-#Question 10
-Produce a cross-table confusion matrix showing the accuracy of the classification using knn from the class package with k = 5.
+
 ```{r}
 kn_pred <- class::knn(train = train_glass, test = test_glass, cl = train_target_glass, k =5)
 library(gmodels)
 CrossTable( x = test_target_glass, y = kn_pred, prop.chisq = FALSE)
 ```
-#Question 2.1
-Investigate this data set of home prices in King County (USA).
+
 ```{r}
 #house <- read.csv("/Users/jess/Documents/Spring 2019/DA5030 - Intro to machine learning and data mining/Week 4- practicum 1/kc_house_data.csv", header = TRUE)
 house <- read.csv("/Users/hpj/Downloads/kc_house_data.csv", header = TRUE)
 ```
 
-#Question 2.2
-Save the price column in a separate vector/dataframe called target_data. Move all of the columns except the ID, date, price, yr_renovated, zipcode, lat, long, sqft_living15, and sqft_lot15 columns into a new data frame called train_data.
+
 ```{r}
 #seperating "price" variable
 target_data <- as.tibble(house[, 3])
@@ -254,8 +237,7 @@ train_data <- tibble(bedrooms=4,bathrooms=3,sqft_living=4852,sqft_lot=9812, floo
 house <- rbind(train_data, house)
 ```
 
-#Question 2.3
-Normalize all of the columns (except the boolean columns waterfront and view) using min-max normalization.
+
 ```{r}
 #normalizing the dataset
 house_norm <- as.data.frame(lapply(house[,1:12], normalize))
@@ -268,10 +250,7 @@ train_data <- dum[1,]
 head(house_norm)
 house_norm <- as.data.frame(house_norm)
 ```
-#Question 2.4
-Build a function called knn.reg that implements a regression version of kNN that averages the prices of the k nearest neighbors. It must use the following signature:
-knn.reg (new_data, target_data, train_data, k)
-where new_data is a data frame with new cases, target_data is a data frame with a single column of prices from (2), train_data is a data frame with the features from (2) that correspond to a price in target_data, and k is the number of nearest neighbors to consider. It must return the predicted price.
+
 ```{r}
 #knn function
 
@@ -320,10 +299,7 @@ knn.reg <- function(new_data, target_data, train_data, k) {
 ```
 
 
-#Question 2.5
-Forecast the price of this new home using your regression kNN using k = 4:
-bedrooms = 4 | bathrooms = 3 | sqft_living = 4852 | sqft_lot = 9812 | floors = 3 | waterfront = 0 | view = 1 | condition = 3 | grade = 11
-sqft_above = 1860 | sqft_basement = 820 | yr_built = 1962
+
 ```{r}
 new_data <- house_norm[ , ]
 new_data <- as.data.frame(new_data)
