@@ -15,8 +15,7 @@ library(stringr)
 library(ggplot2)
 ```
 
-#Question 1
-Build an R Notebook of the SMS message filtering example in the textbook on pages 103 to 123. Show each step and add appropriate documentation. This is the same as Lesson 4.
+
 ```{r}
 #Loading the dataset into r environment
 sms <- read.csv("https://da5030.weebly.com/uploads/8/6/5/9/8659576/da5030.spammsgdataset.csv", stringsAsFactors = FALSE)
@@ -144,8 +143,7 @@ CrossTable(sms_test_pred2, sms_test_labels, prop.chisq = FALSE, prop.r = FALSE, 
 ```
 
 
-#Question 2
-Install the requisite packages to execute the following code that classifies the built-in iris data using Naive Bayes. Build an R Notebook and explain in detail what each step does. Be sure to look up each function to understand how it is used.
+
 ```{r}
 #installing the necessary packages
 # install.packages("klaR")
