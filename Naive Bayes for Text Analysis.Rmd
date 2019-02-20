@@ -1,0 +1,178 @@
+---
+title: "R Notebook"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+editor_options:
+  chunk_output_type: console
+---
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(stringr)
+library(ggplot2)
+```
+
+#Question 1
+Build an R Notebook of the SMS message filtering example in the textbook on pages 103 to 123. Show each step and add appropriate documentation. This is the same as Lesson 4.
+```{r}
+#Loading the dataset into r environment
+sms <- read.csv("https://da5030.weebly.com/uploads/8/6/5/9/8659576/da5030.spammsgdataset.csv", stringsAsFactors = FALSE)
+#Checking the internal structure of the dataset
+str(sms)
+
+#changing the type to factors because it is a categorical variable
+sms$type <- as.factor(sms$type)
+
+#checking whether it has changed ti factor
+str(sms$type)
+
+#checking how many spams and hams we have in our dataset
+table(sms$type)
+
+#installing necessary packages
+# install.packages("tm")
+library(tm)
+
+#creating a corpus - a collection of text documnets and using vectorsource() function to create a source object.
+sms_corp <- VCorpus(VectorSource(sms$text))
+
+#printing the corpus to see the content for each of the messages in training dataset
+print(sms_corp)
+
+#receive a summary of specific messages by inspect() function
+inspect(sms_corp[1:2])
+
+#viewing the actual message
+as.character(sms_corp[[1]])
+#check multiple documents
+lapply(sms_corp[1:2], as.character)
+
+#apply transformations to corpus by using tm_map() function. first transform to lowercase
+sms_corp_clean <- tm_map(sms_corp, content_transformer(tolower))
+
+#checking whether they have changed to lower case
+as.character(sms_corp[[1]])
+as.character(sms_corp_clean[[1]])
+
+#next step of transformation is to remove numbers in teh texts
+sms_corp_clean <- tm_map(sms_corp_clean, removeNumbers)
+
+#removing filler words like "to, and, but, or" these are called stop words and there is a function in tm package
+
+sms_corp_clean <-  tm_map(sms_corp_clean, removeWords, stopwords())
+
+#eliminating punctuation 
+sms_corp_clean <- tm_map(sms_corp_clean,removePunctuation)
+
+#performing stemming - common standardization for text data involving reducing words to its base form
+#we need to install package to do stemming
+# install.packages("SnowballC")
+library(SnowballC)
+#applying stemming in our data
+sms_corp_clean <- tm_map(sms_corp_clean, stemDocument)
+
+#removing the blank spaces
+sms_corp_clean <- tm_map(sms_corp_clean, stripWhitespace)
+
+#splitting the messages into individual componenets through tokenization. tm packages has function called DocumentTermMatrix() 
+sms_dtm <- DocumentTermMatrix(sms_corp_clean)
+
+#Doing the same preprocessing by providing a list of control parameters. It is the same as we have done before.
+sms_dtm2 <-  DocumentTermMatrix(sms_corp, control = list(tolower = TRUE, removeNumbers = TRUE, stopwords = TRUE, removePunctuation = TRUE, stemming = TRUE))
+
+#creating training and testing datasets
+sms_dtm_train <- sms_dtm[1:4180,]
+sms_dtm_test <-  sms_dtm[4181:5574,]
+
+sms_train_labels <-  sms[1:4180, ]$type
+sms_test_labels <-  sms[4181:5574,]$type
+
+#checking if they are evenly divided
+prop.table(table(sms_train_labels))
+prop.table(table(sms_test_labels))
+
+#creating wordcloud to visually depict the frequency of the words appear in the text data.
+# install.packages("wordcloud")
+library(wordcloud)
+wordcloud(sms_corp_clean, min.freq = 50, random.order = FALSE)
+
+#subsetting spam and ham
+spam <- subset(sms, type == "spam")
+ham <-  subset(sms, type == "ham")
+
+#creating word cloud for spam and ham
+wordcloud(spam$text, max.words = 40, scale = c(3,0.5))
+wordcloud(ham$text, max.words = 40, scale = c(3, 0.5))
+
+#finding the frequency of the words
+sms_freq_words <- findFreqTerms(sms_dtm_train, 5)
+str(sms_freq_words)
+
+sms_dtm_freq_train <-  sms_dtm_train[ , sms_freq_words]
+sms_dtm_freq_test <-  sms_dtm_test[ , sms_freq_words]
+
+#depending on whether the words appear pr not we change it to categorical variable by convert_counts() function
+convert_counts <- function(x) {
+  x <-  ifelse(x >0 , "Yes", "No")
+}
+
+#using apply() function we are counting to each of our columns in sparse matrix. the margin parameter is 2 because we are considering columns
+sms_train <-  apply(sms_dtm_freq_train, MARGIN = 2, convert_counts)
+sms_test <-  apply(sms_dtm_freq_test, MARGIN = 2, convert_counts)
+
+#applying naive bayes algorithm using e1071 packages
+# install.packages("e1071")
+library(e1071)
+
+#building model on training dataset
+sms_classifier <- naiveBayes(sms_train, sms_train_labels)
+
+#predicting the model
+sms_test_pred <-  predict(sms_classifier, sms_test)
+
+#creating a crosstable to compare the predictions
+library(gmodels)
+CrossTable(sms_test_pred, sms_test_labels, prop.chisq = FALSE, prop.t = FALSE, dnn = c('predicted', 'actual'))
+
+#improving model performance by laplace = 1
+sms_classifier2 <-  naiveBayes(sms_train, sms_train_labels, laplace = 1)
+sms_test_pred2 <-  predict(sms_classifier2, sms_test)
+CrossTable(sms_test_pred2, sms_test_labels, prop.chisq = FALSE, prop.r = FALSE, dnn = c('predicted', 'actual'))  
+```
+
+
+#Question 2
+Install the requisite packages to execute the following code that classifies the built-in iris data using Naive Bayes. Build an R Notebook and explain in detail what each step does. Be sure to look up each function to understand how it is used.
+```{r}
+#installing the necessary packages
+# install.packages("klaR")
+library(klaR)
+#calling the dataset iris
+data("iris")
+nrow(iris)
+summary(iris)
+head(iris)
+
+#creating an index to split the dataset iris by 80% training data and 20% testing data
+testidx <- which(1:length(iris[,1]) %% 5 == 0)
+
+#seperating into training and testing dataset
+iristrain <-  iris[-testidx,]
+iristest <-  iris[testidx,]
+
+#applying naive bayes from klaR package
+nbmodel <-  NaiveBayes(Species~., data = iristrain)
+
+#predicting the test set using the training set which was used to create a model.
+prediction <- predict(nbmodel, iristest[,-5])
+
+#the predictions of the species are given below and counts each combination of factor levels by using table()
+table(prediction$class, iristest[,5])
+
+
+
+```
+
