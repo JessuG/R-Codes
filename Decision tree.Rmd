@@ -1,0 +1,125 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+library(tidyverse)
+library(stringr)
+library(lubridate)
+library(plyr)
+library(gmodels)
+# install.packages("C50")
+library(C50)
+# install.packages("rJava", type = 'source')
+# Sys.setenv(JAVA_HOME='C:/Program Files/Java/jre-9.0.4')
+# library(rJava)
+# install.packages("RWeka")
+# library(RWeka)
+```
+
+#Question 1
+Build an R Notebook of the bank loan decision tree example in the textbook on pages 136 to 149; the CSV file is available for download below. Show each step and add appropriate documentation. Note that the provided dataset uses values 1 and 2 in default column whereas the book has no and yes in the default column. To fix any problems replace "no" with "1" and "yes" with "2" in the code that for matrix_dimensions. Alternatively, change the line
+error_cost <- matrix(c(0, 1, 4, 0), nrow = 2, dimnames = matrix_dimensions) to error_cost <- matrix(c(0, 1, 4, 0), nrow = 2). If your tree produces poor results or runs slowly, add control=Weka_control(R=TRUE).
+```{r}
+#loading the dataset into R
+credit <- read.csv("https://da5030.weebly.com/uploads/8/6/5/9/8659576/credit.csv")
+
+#exploring the dataset 
+str(credit)
+table(credit$checking_balance)
+table(credit$savings_balance)
+summary(credit$months_loan_duration)
+summary(credit$amount)
+
+#changing the lables of "default" variable labels to "yes" and "no"
+
+table(credit$default)
+credit$default[credit$default == 1] <- 'no'
+credit$default[credit$default == 2] <- 'yes'
+
+credit$default <-as.factor(credit$default)
+table(credit$default)
+
+#creating random trianing and testing dataset
+
+set.seed(123)
+#selecting 900 values at random out of 1000 sequence of integers
+train_sample <- sample(1000,900)
+
+str(train_sample)
+
+#splitting into 90% training and 10% test dataset
+credit_train <- credit[train_sample, ]
+credit_test <- credit[-train_sample,]
+
+#checking if the split is equal
+prop.table(table(credit_train$default))
+prop.table(table(credit_test$default))
+
+#training the model on the data using C5.0 package
+
+#removing the 17th column in credit_train is the default class variable, so excluding it fromt he training dataframe
+credit_model <- C5.0(credit_train[-17], credit_train$default)
+#printing the model created
+credit_model
+#creating the sumamry of the model to look into the tree
+summary(credit_model)  ##error output tells us that the model correctly classified all but 135 of 900 that is 15% is error. A total of 44 actual no values were incorrectly classified as yes that is called false positives. 91 yes values are classified as no this is called false negatives
+
+#evaluating the model performance by predicting it 
+credit_predict <- predict(credit_model, credit_test)
+CrossTable(credit_test$default, credit_predict, prop.chisq = FALSE, prop.r = FALSE, dnn = c('actual default', 'predicted default'))  ##fill in here jess
+
+##improving the models performance by boosting the accuracy of decision trees. It is a a process by combining a number of weak performing layers which results in creating a team that is stronger than any learner alone.
+credit_boost10 <- C5.0(credit_train[-17],credit_train$default, trials = 10)
+
+credit_boost10
+summary(credit_boost10)
+
+#predicting 
+credit_boost10_pred <- predict(credit_boost10, credit_test)
+CrossTable(credit_test$default, credit_boost10_pred, prop.chisq = FALSE, prop.r = FALSE, dnn = c('actual default', 'predictied default'))
+
+#constructing an cost matrix. that is inorder to discourage the tree from making more costly mistakes we build cost matrix which specifies how much costly each error is relative to any other prediction.
+matrix_dim <- list(c("1", "2"), c("1", "2"))
+names(matrix_dim) <- c("predicted", "actual")
+matrix_dim
+
+#assigning penalty for various types of errors by supplying 4 values to fill the matrix.
+error_cost <- matrix(c(0, 1, 4, 0), nrow = 2)
+error_cost
+
+#applying decision tree using costs parameter of the c5.0
+credit_cost <- C5.0(credit_train[-17], credit_train$default, costs = error_cost)
+credit_cost_pred <- predict(credit_cost, credit_test)
+CrossTable(credit_test$default, credit_cost_pred, prop.chisq = FALSE, prop.r = FALSE, dnn= c('actual default', 'predicted default'))
+
+
+
+```
+
+
+#Question 2
+Build and R Notebook of the poisonous mushrooms example using rule learners in the textbook on pages 160 to 168. Show each step and add appropriate documentation. The CSV file is available below.
+Tip: In case anyone gets this error on the 1R implementation:
+>mushroom_1R <- OneR(type ~ ., data = mushrooms)
+Error in .jcall(o, "Ljava/lang/Class;", "getClass") : weka.core.UnsupportedAttributeTypeException: weka.classifiers.rules.OneR: ...
+Change your characters to factors. Here's an explanation why factors are needed.
+
+```{r}
+#Identifying poisonous mushrooms with rule learners
+#loading the dataset into R
+
+mush <- read.csv("https://da5030.weebly.com/uploads/8/6/5/9/8659576/mushrooms.csv")
+str(mush)
+
+#dropping "veil_type " because it is not useful for out prediction
+
+mush$veil_type <- NULL
+
+#checking the distribution of type of mushroom. 
+table(mush$type)  #52% are edible while 48% are poisonous
+
+#splitting the dataset into two
+
+```
+
