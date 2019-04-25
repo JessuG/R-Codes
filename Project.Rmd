@@ -1,0 +1,527 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+  pdf_document:
+    latex_engine: xelatex
+---
+```{r}
+#loading necessary packages
+library(tidyverse)
+library(psych)
+
+# install.packages("GGally")
+library(GGally)
+library(ggplot2)
+ # install.packages("ggExtra")
+library(ggExtra)
+# install.packages("class")
+library(class)
+library(gmodels)
+# install.packages("caret")
+library(caret)
+# install.packages("fastDummies")
+library(fastDummies)
+# install.packages("C50")
+library(C50)
+
+```
+
+////PHASE ONE : BUSINESS UNDERSTANDING 
+This phase focuses on understanding the project from a  business perspectives and develop a plan to achieve the goals
+
+//Determining the business objectives
+This phase uncovers the primary business objective.
+I am a graduate student at northeastern university. When I was applying to the universities from India, often times I wanted to know the acceptance rate of the universities based on SoP(Statement of Purpose), LoR(Letter of Recommendation), GRE score, TOEFL Score. To help students decide their chances of admit at different universities in the US based on these criteria I have decided to build Machine Learning and Data mining concepts that I have learned in DA5030 class.
+1. To use Machine Learning and Data mining techniques to predict the admission chances of students with different test scores and criteria
+
+//Situation assessment
+This phase covers what data is available to meet the primary business goal,list potential risk and solutions to those risks
+The dataset contains information about the test scores, CGPA and university rating, the question arises who rates the universities and what are the criteria for rating a university.The veracity of SoP and LoR rating will be biased as it is based on the applicants knowledge and self- evaluation which is why they are listed as 'not important' variables. The chance of admit was for different universities around the country USA.
+
+//Determining the data mining goals
+The data mining goals of this project is to predict the admission of new students and also improve the accuracy of prediction of different machine learning models.
+
+//Producing a project plan
+This project will have the following steps
+1. Explore the dataset using different visualization techniques
+2. Transform the data if needed
+3. Splitting the dataset into training and validation
+4. Use Machine Learning techniques like KNN, Decision tree, multiple regression to predict the chance of admit 
+5. Compare the accuracy of different machine learning models
+6. Build stacked ensemble method to improve the models performance
+7. Visualize the prediction for better understanding
+
+////PHASE TWO : DATA UNDERSTANDING
+This phase consists of data collection, exploring the data, identifying the data quality problems, discover insights into the data and detect interesting subsets too form hypotheses.
+
+//Collecting the data
+The data was collected from Kaggle (https://www.kaggle.com/mohansacharya/graduate-admissions). Initially this data was inspired by UCLA graduate dataset. There was no need for different data sources as the dataset obtained was sufficient to predict the chance of admit using different machine learning algorithms
+
+//Describe the data
+This describes the quantity of the data, number of records, features, format of the data
+The dataset obtained was in CSV format. It had 500 observations with 9 variables which are
+a) Serial number (numerical)
+b) GRE Score (numerical, out of 340)
+c) TOEFL Score (numerical, out of 120)
+d) University Rating (numerical, out of 5)
+e) SoP Rating(numerical, out of 5)
+f) LoR Rating(numerical, out of 5)
+g) CGPA (numerical, out of 10)
+h) Research(categorical, 0 or 1)
+i) Chance of admit(probability, 0 to 1)
+```{r}
+#loading the dataset into R environment
+grad_admit <- read.csv("/Users/jess/Downloads/graduate-admissions/Admission_Predict_Ver1.1.csv")
+str(grad_admit)
+OG_data <- read.csv("/Users/jess/Downloads/graduate-admissions/Admission_Predict_Ver1.1.csv")
+```
+//Exploring the data
+Visualizing and reporting the data is part of this phase. I have created many graphs  to explore the dataset, to find outliers and have produced graphs to check the normal distribution of the variable
+
+```{r}
+#histograms to check the normal distribution
+hist(grad_admit$GRE.Score, xlab = "GRE score")
+hist(grad_admit$TOEFL.Score, xlab = "TOEFL score")
+hist(grad_admit$University.Rating, xlab = "University rating")
+hist(grad_admit$SOP, xlab = "SOP rating")
+hist(grad_admit$LOR, xlab = "LOR rating")
+hist(grad_admit$CGPA,  xlab = "CGPA")
+hist(grad_admit$Chance.of.Admit , xlab = "chance of admit")
+
+#boxplot to detect outliers if there are any
+boxplot(grad_admit$GRE.Score, ylab = "GRE score")
+boxplot(grad_admit$TOEFL.Score, ylab = "TOEFL score")
+boxplot(grad_admit$University.Rating, ylab ="University rating" )
+boxplot(grad_admit$SOP, ylab = "SOP rating")
+boxplot(grad_admit$LOR, ylab = "LOR rating")
+boxplot(grad_admit$CGPA, ylab = "CGPA")
+boxplot(grad_admit$Chance.of.Admit, ylab = "Chance of admit")
+summary(grad_admit$Chance.of.Admit)
+summary(grad_admit$LOR)
+
+#scatterplot for all scores and chance of admit
+pairs.panels(grad_admit)
+
+important_param <- grad_admit %>% 
+  select(GRE.Score, TOEFL.Score, CGPA, Chance.of.Admit)
+pairs.panels(important_param)
+
+#gre vs chance of admit
+
+p <- ggplot(grad_admit, aes(x=GRE.Score, y=Chance.of.Admit)) +    geom_point(shape=1) +  geom_smooth(method=lm , color="red", se=TRUE) + xlab("GRE score") + ylab(" Chance of admit")   # Add linear regression line 
+ggMarginal(p, type="histogram")
+
+#research facet plot
+ggplot(data = grad_admit) + 
+  geom_point(mapping = aes(x = GRE.Score, y = TOEFL.Score, color = Chance.of.Admit)) + 
+  facet_wrap(~ Research)+
+  xlab("GRE Score")+
+  ylab("TOEFL Score")
+
+
+```
+
+//Verifying the data quality
+The quality of the dataset it good because it doesnt have any missing values. Of course like any other dataset it has biased attributes like SoP and LoR rating but there are no missing values. The variables does not have any conflict with common sense. It has 500 observation of 9 different variables out of which one is what we are going to predict using machine learning techniques.
+
+////PHASE THREE: DATA PREPARATION
+This phase covers constructing of dataset for using in the analyses, transforming the dataset if needed, integration and cleansing of data if needed
+
+//Selection of data
+In this phase I have to select the variables that aligns with my data mining goals and eliminate variables which are not useful. In graduate admission dataset, I dont need "serial number" variable because it does not provide useful information or any relevance to the dataset
+For building models I used only few important variables they are "GRE Score", "TOEFL Score", "CGPA". The other variables are least important because they do not have high correlation.
+
+//Clean data
+Inorder to clean the data, I deleted "serial number" variable from the dataset. Some categorical variables like "research" "university rating" were in different datatype. I converted them to factor variable which will be more useful.
+
+//Construct data
+In this stage, I created dummy variables for categorical variables I have in my dataset. Produced a new column called "chance_low_high" based on "Chance of admit" that is available in the actual dataset.This variable will help us in the data mining goals we proposed earlier
+
+//Integrate data
+This dataset doesnt require integration of data from different dataset since the data obtained itself is clean and complete.
+
+//Format data
+Some variable types were different and inorder to use it I changed them to factor variables to use. Imputed the outliers of different variables by replacing it with either mode or median of that variable to get rid of the outliers. Outliers are usually defined as the 3 standard deviation away. I found the outliers by creating a boxplot from the data exploration phase.
+
+```{r}
+
+########################################Data Imputation################################
+#there is one outlier in LOR and chance of admit.the lor outlier is 1 and the chance of admit is 0.34.
+
+#to impute the outlier. I will replace LOR with mode
+getmode <- function(v) {
+   uniqv <- unique(v)
+   uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+modeLOR <- getmode(grad_admit$LOR)
+print(modeLOR)
+
+#The mode of LOR is 3 hence replacing the outlier with 3
+grad_admit$LOR[grad_admit$LOR ==1] <- 3
+
+#replacing chance of admit with median which is 0.72
+grad_admit$Chance.of.Admit[grad_admit$Chance.of.Admit==0.34] <- 0.72
+
+#coverting "research" to categorical variable
+grad_admit$Research[grad_admit$Research ==1] <- "Yes"
+grad_admit$Research[grad_admit$Research ==0] <- "No"
+
+grad_admit$Research <- as.factor(grad_admit$Research) #2 is yes, 1 is no
+
+#creating a new categorical variable using the existing variable
+
+grad_admit$chance_low_high[grad_admit$Chance.of.Admit <= 0.50 ] <- "low"
+grad_admit$chance_low_high[grad_admit$Chance.of.Admit > 0.50 ] <- "high"
+
+grad_admit$chance_low_high <- as.factor(grad_admit$chance_low_high)
+
+
+#removing unwanted columns
+grad_admit$Serial.No. <- NULL
+grad_admit$Chance.of.Admit <- NULL
+
+str(grad_admit)
+```
+
+
+////PHASE FOUR: MODELLING
+//Selecting the modeling technique
+Inorder to meet the datamining goals, I have decided to use three modeling techniques, they are 
+1. K-Nearest Neighbors using Caret and Class package
+2. Multiple Regression
+3. Naive Bayes Classification using C5.0 package
+
+//Generate test design
+In order to test the model that is created by various machine learning techniques, I split the dataset into two for training the model and validating the model . It generally has 80% data for training and 20% data for validating the model created. 
+
+//Build the model
+Built three different machine learning models on the training dataset which was created in the previous step.
+
+//Assess the model
+The model constructed are assessed by using the model on validating dataset which was created. This will give the accuracy of the model and If there are any changes or if I want to improve the model I created a new model on the training set and use it on validation dataset. 
+
+```{r}
+##KNN
+#creating a new dataset
+grad_num_df <- grad_admit %>% select(GRE.Score, TOEFL.Score, CGPA, chance_low_high)
+
+#normalizing the data
+normalize <- function(x) {
+return((x - min(x)) / (max(x) - min(x)))
+}
+
+#passing the function
+grad_num_df_n <- as.data.frame(lapply(grad_num_df[,1:3], normalize))
+
+#splitting the dataset randomly
+## 75% of the sample size
+smp_size <- floor(0.75 * nrow(grad_num_df_n))
+
+## set the seed to make your partition reproducible
+set.seed(123)
+train_ind <- sample(seq_len(nrow(grad_num_df_n)), size = smp_size)
+
+grad_num_df_train <- grad_num_df_n[train_ind, ]
+grad_num_df_test <- grad_num_df_n[-train_ind, ]
+
+#creating labels
+grad_num_df_train_labels <- grad_num_df[train_ind, 4, drop = TRUE]
+grad_num_df_test_labels <- grad_num_df[-train_ind,4, drop = TRUE]
+
+
+#implementing KNN 
+grad_admit_test_pred <- knn(train = grad_num_df_train, test = grad_num_df_test,
+                        cl = grad_num_df_train_labels  , k = 3)
+
+#evaluating model performance
+CrossTable(x = grad_num_df_test_labels, y = grad_admit_test_pred,
+                       prop.chisq=FALSE)
+# overall, there were 6 which was falsely classified, the model correctly classified 112 students have high chnace of admittance - true negatives and 5 students have low chance of getting adn the algorithm correctly predicted them. But the algorithm incorrectly identified that 2 students have high chance of getting and admit and 6 students were incorrectly classified as low chance of getting an admit- false negative
+
+
+#KNN using caret package with different K values
+set.seed(30)
+new <- createDataPartition(y = grad_admit$chance_low_high,p = 0.65,list = FALSE) #creating train and test dataset
+grad_train <-grad_admit[new,]
+grad_test <- grad_admit[-new,]
+con <- trainControl(method = "repeatedcv", number = 2, repeats = 5)
+knn <- train(chance_low_high ~ ., data = grad_train,
+method ="knn", trControl = con, preProcess = c("center","scale"))
+predict <- predict(knn,newdata = grad_test) 
+head(predict)
+confusionMatrix(predict, grad_test$chance_low_high)
+
+#using caret package we have accurcy of 94% with no false negatives. 
+
+#############different k-values##################################
+trctrl <- trainControl(method = "repeatedcv", number = 10, repeats = 2)
+set.seed(3333)
+knn_fit <- train(chance_low_high ~., data = grad_train, method = "knn",trControl=trctrl,preProcess = c("center", "scale"),tuneLength = 10)
+knn_fit
+
+df <- knn_fit$results
+ggplot(data = df)+
+  geom_line(mapping = aes(x = df$k, y = df$Accuracy))+
+  xlab("K values")+
+  ylab("Accuracy")
+
+#When we plot different values for k, we get to know that the highest accuracy is when k is 7. 
+grad_admit_test_pred5 <- knn(train = grad_num_df_train, test = grad_num_df_test,
+                        cl = grad_num_df_train_labels  , k = 7)
+
+#evaluating model performance
+CrossTable(x = grad_num_df_test_labels, y = grad_admit_test_pred5,
+                       prop.chisq=FALSE)
+
+```
+
+```{r}
+#Multiple regression
+
+#creating dummy variables for 3 categorical variable in this dataset
+str(OG_data)
+
+OG_data <- dummy_cols(OG_data, select_columns = "University.Rating")
+OG_data <- dummy_cols(OG_data, select_columns = "Research")
+
+#####splitting the dataset into training and testing#########
+set.seed(111)
+split_ind <- sample(seq_len(nrow(OG_data)), size = smp_size)
+
+grad_MR_train <- OG_data[split_ind, ]
+grad_MR_test <- OG_data[-split_ind, ]
+
+#created a model using training dataset
+mul_model <- glm(Chance.of.Admit ~ GRE.Score + TOEFL.Score + University.Rating_1 + University.Rating_2 + University.Rating_3 + University.Rating_4 + University.Rating_5 +CGPA + Research_1 , data = grad_MR_train)
+summary(mul_model)
+#as we can see, there are many insignificant variables which can be removed by backfitting method.
+
+#################model 2 created by backfitting#####################################
+mul_model2 <- lm(Chance.of.Admit ~ GRE.Score + TOEFL.Score + University.Rating_2 + University.Rating_3   +CGPA  , data = grad_MR_train)
+summary(mul_model2)
+
+#################model 3 created by backfitting####################################
+mul_model3<- lm(Chance.of.Admit ~ GRE.Score + TOEFL.Score + University.Rating_2 +CGPA  , data = grad_MR_train)
+summary(mul_model3)
+#this model has the most significant variable. This is obtained by backfitting proceess
+#as we can see the coefficients, we have statistically significant variables with p-values less than 0.05. multiple r-squared provides the measure of how well our model explains the values of the dependant variables, the closer it is to 1, the better it is. We have 0.80 which is a pretty good model. Our model has 0.80 as R-squared values the model explains nearly 80 percent of the variation in the dependent variable
+ 
+######################predicting the model############################
+predMR <- predict(mul_model3, grad_MR_test[c("GRE.Score", "TOEFL.Score", "University.Rating_2", "CGPA")])
+head(predMR)
+head(grad_MR_test$Chance.of.Admit)
+
+###############calculating the root mean squared error for the prediction####
+Sq_err <- (grad_MR_test$Chance.of.Admit - predMR)^ 2
+ #calculating the mean
+ avg_sq_err <- mean(Sq_err)
+ #taking square root of it
+ rmse <- sqrt(avg_sq_err)
+ rmse
+ 
+ ##the root mean squared error is very minimum. Hence the model I created is good
+ 
+```
+
+```{r}
+#Naive bayes
+set.seed(123)
+train_sample <- sample(500,100)
+str(train_sample)
+
+#splitting the dataset randomly
+grad_NB_test<- grad_admit[train_sample,]
+grad_NB_train <- grad_admit[-train_sample,]
+
+#fairly even split
+prop.table(table(grad_NB_test$chance_low_high))
+prop.table(table(grad_NB_train$chance_low_high))
+
+head(grad_NB_train)
+# grad_NB_test <- grad_NB_test[,-8]
+# grad_NB_train <- grad_NB_train[,-8]
+
+#creating a naive bayes model
+nb_model <- C5.0(grad_NB_train[-8], grad_NB_train$chance_low_high)
+nb_model
+summary(nb_model)
+#The few lines of the models tree can be read as if cgpa is greater than 8.02, then there is high chance of getting an admit otherwise the cgpa is less than or equal to 8.02, and if the TOEFL score is less than 97 then the chance will be low . the (322/4) means that there were 4 cases which was incorrectly predicted.The error rate for this model is 4.2%, 2 values of "high chance of getting admit" was incorrectly classified(false positives) while 15 actual low values were incorrectly clasified as high(false negatives).
+
+#evaluating the model performance using testing dataset
+nb_pred <- predict(nb_model, grad_NB_test)
+CrossTable(grad_NB_test$chance_low_high, nb_pred, prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE, dnn = c("actual chance", "predicted chance"))
+
+#the model has correctly predicted 91 students have higher chance of getting and admit and 3 students have low chance of getting an admit, with 94% accuracy and an error rate of 6% which is not actually bad model but we can boost the accuracy of decision trees
+
+########################improving model performance##################################
+#Let us see if we can boost our algorithm with trials parameter, indicating the number of separate decision trees to use in the boosted team, it sets an upper limit, the algorithm will stop adding trees if it recognizes that additional trials do not seem to be improving the accuracy. we are starting with 10.
+nb_boost <- C5.0(grad_NB_train[-8], grad_NB_train$chance_low_high, trials = 10)
+nb_boost
+summary(nb_boost)
+
+nb_pred_boost <- predict(nb_boost, grad_NB_test)
+CrossTable(grad_NB_test$chance_low_high, nb_pred_boost, prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE, dnn = c("actual chance", "predicted chance"))
+
+#The model obtained 94% accuracy which is the same as before and it is a good model
+
+```
+
+```{r}
+
+#Building Ensemble Methods
+set.seed(1)
+
+str(grad_admit)
+
+
+#Spliting training set into two parts based on outcome: 75% and 25%
+index <- createDataPartition(grad_admit$chance_low_high, p=0.75, list=FALSE)
+trainSet_ensemble <- grad_admit[ index,]
+testSet_ensemble <- grad_admit[-index,]
+
+#Defining the training controls for multiple models
+fitControl <- trainControl(
+  method = "cv",
+  number = 5,
+savePredictions = 'final',
+classProbs = T)
+
+#Defining the predictors and outcome
+predictors<-c("GRE.Score", "TOEFL.Score", "CGPA")
+outcomeName<-'chance_low_high'
+
+###################################Random Forest#####################################
+
+#Training the random forest model
+model_rf<-train(trainSet_ensemble[,predictors],trainSet_ensemble[,outcomeName],method='rf',trControl=fitControl,tuneLength=3)
+
+#Predicting using random forest model
+testSet_ensemble$pred_rf<-predict(object = model_rf,testSet_ensemble[,predictors])
+
+#Checking the accuracy of the random forest model
+confusionMatrix(testSet_ensemble$chance_low_high,testSet_ensemble$pred_rf) #the accuracy is 91%
+
+#################################KNN##################################################
+
+#Training the knn model
+model_knn<-train(trainSet_ensemble[,predictors],trainSet_ensemble[,outcomeName],method='knn',trControl=fitControl,tuneLength=3)
+
+#Predicting using knn model
+testSet_ensemble$pred_knn<-predict(object = model_knn,testSet_ensemble[,predictors])
+
+#Checking the accuracy of the knn model
+confusionMatrix(testSet_ensemble$chance_low_high,testSet_ensemble$pred_knn) #the accuracy is 91%
+
+#################################Logistic regression###################################
+#Training the Logistic regression model
+model_lr<-train(trainSet_ensemble[,predictors],trainSet_ensemble[,outcomeName],method='glm',trControl=fitControl,tuneLength=3)
+
+#Predicting using knn model
+testSet_ensemble$pred_lr<-predict(object = model_lr,testSet_ensemble[,predictors])
+
+#Checking the accuracy of the Logistic regression model
+confusionMatrix(testSet_ensemble$chance_low_high,testSet_ensemble$pred_lr) #the accuracy is 93%, slightly higher than the previous two models
+
+#averaging the predictions from each model. Since we are predicting whether the chance of admit is high or low, we are averaging the probabilities 
+#Predicting the probabilities
+testSet_ensemble$pred_rf_prob<-predict(object=model_rf,testSet_ensemble[,predictors],type='prob')
+testSet_ensemble$pred_knn_prob<-predict(object = model_knn,testSet_ensemble[,predictors],type='prob')
+testSet_ensemble$pred_lr_prob<-predict(object = model_lr,testSet_ensemble[,predictors],type='prob')
+
+#Taking average of predictions
+testSet_ensemble$pred_avg<-(testSet_ensemble$pred_rf_prob$high+testSet_ensemble$pred_knn_prob$high+testSet_ensemble$pred_lr_prob$high)/3
+
+#Splitting into binary classes at 0.5
+testSet_ensemble$pred_avg<-as.factor(ifelse(testSet_ensemble$pred_avg>0.5,'HIGH','LOW'))
+
+#Implimenting majority voting by assigning the prediction for the values as predicted by the models
+testSet_ensemble$pred_majority<-as.factor(ifelse(testSet_ensemble$pred_rf=='high' & testSet_ensemble$pred_knn=='high','high',ifelse(testSet_ensemble$pred_rf=='high' & testSet_ensemble$pred_lr=='high','high',ifelse(testSet_ensemble$pred_knn=='high' & testSet_ensemble$pred_lr=='high','high','low'))))
+
+#Taking weighted average of predictions, generally weights of predictions are higher for more accurate models
+testSet_ensemble$pred_weighted_avg<-(testSet_ensemble$pred_rf_prob$high*0.5)+(testSet_ensemble$pred_knn_prob$high*0.5)+(testSet_ensemble$pred_lr_prob$high*0.25)
+
+#Splitting into binary classes at 0.5
+testSet_ensemble$pred_weighted_avg<-as.factor(ifelse(testSet_ensemble$pred_weighted_avg>0.5,'HIGH','LOW'))
+
+
+#########################Boosting using GBM############################################
+#Gradient Boosting aka GBM is a powerful algorithm. It reduces bias and variance and constructs one tree at a time and it is used in real world examples. the weekness of the model is that it tends to overfit and it is harder to tune.
+
+#Predicting using each base layer model for training data
+trainSet_ensemble$OOF_pred_rf<-model_rf$pred$high[order(model_rf$pred$rowIndex)]
+trainSet_ensemble$OOF_pred_knn<-model_knn$pred$high[order(model_knn$pred$rowIndex)]
+trainSet_ensemble$OOF_pred_lr<-model_lr$pred$high[order(model_lr$pred$rowIndex)]
+
+#Predicting probabilities for the test data
+testSet_ensemble$OOF_pred_rf<-predict(model_rf,testSet_ensemble[predictors],type='prob')$high
+testSet_ensemble$OOF_pred_knn<-predict(model_knn,testSet_ensemble[predictors],type='prob')$high
+testSet_ensemble$OOF_pred_lr<-predict(model_lr,testSet_ensemble[predictors],type='prob')$high
+
+#Predictors for top layer models 
+predictors_top<-c('OOF_pred_rf','OOF_pred_knn','OOF_pred_lr') 
+
+#constructing GBM as the top model after prediction
+#GBM as top layer model 
+model_gbm<- 
+train(trainSet_ensemble[,predictors_top],trainSet_ensemble[,outcomeName],method='gbm',trControl=fitControl,tuneLength=3)
+
+#constructing Logistic regression as the top layer model
+#Logistic regression as top layer model
+model_glm<-
+train(trainSet_ensemble[,predictors_top],trainSet_ensemble[,outcomeName],method='glm',trControl=fitControl,tuneLength=3)
+#############################Stacked ensemble method################################
+#predict using GBM top layer model
+testSet_ensemble$gbm_stacked<-predict(model_gbm,testSet_ensemble[,predictors_top])
+
+#predict using logictic regression top layer model
+testSet_ensemble$glm_stacked<-predict(model_glm,testSet_ensemble[,predictors_top])
+
+#Since the dataset is fairly  clean and neat, all the predictions were higher than usual. The above code displays how stacked ensemble works. Ensemble methods are very useful when the dataset is big and messy. It combines two or more algorithms to produce the best accurate results. There are different types, but the above code explains stacked ensemble method meaning stacking multiple layer of machine learning algorithm over one another where each of the models passes thier predictions to the model in the layer above and the top layer model takes decision based on the inputs given to it. Since this is fairly a good dataset, i used stacked ensemble method
+```
+
+////PHASE FIVE: EVALUATION
+//Evaluate results
+To evaluate the model built I keep few factors into account such as accuracy, RMSE, Pvalue, R-squared. I tuned the model until it reaches the highest accuracy.
+```{r}
+#comparing the models with thier R-squared values to have a better understanding
+errors_rate=data.frame(model_name=c("Naive_Bayes", "Multiple_linear_regression", "KNN") ,  Error_rate=c(0.34, 0.060, 0.065))
+
+ggplot(errors_rate, aes(x=model_name, y=Error_rate)) + geom_bar(stat = "identity")
+
+#when compared to three machine learning techniques, multiple linear regression has the lowest error rate of all. Hence the best machine learning model for this dataset is multiple regression.
+```
+//Review process
+This phase generally consists of cross- verifying the algorithm and checking if it runs perfectly as expected. I re-run the code from scratch to check if there are any errors and gave my insights on every modela nd every code I have written above.
+
+//Determining the next step
+The next step for this project 
+1. cross verify the code
+2. Deploy the project
+
+////PHASE SIX : DEPLOYMENT
+///Plan deployment
+I have planned to deploy this project in my Github and Rpubs. This will help the students who aspire to do a masters degree in th US. They can use this project to get to know thier chance of admission in the University
+
+///Plan monitoring and maintenance
+The project will get updated every three years with new datasets. Some variables like GRE scores have changed in the past. 10 years ago, the GRE scores were out of 800, but recently it has changed to 340. The project will get updated if there are any such changes in the factors affecting the chance of admission
+
+///Produce final report
+The final report for the project will be 
+1. PDF file describes the steps and Data mining concepts along with coding and appropriate commenting
+2. A brief powerpoint presentation describing the steps and action I have taken in the project
+3. Access link to the people who are willing to take a look at it.
+
+
+Reference
+1.Grolemund, Garrett, and Hadley Wickham. R for Data Science. Accessed April 24, 2019. https://r4ds.had.co.nz/.
+2.“How to Build Ensemble Models in Machine Learning? (With Code in R).” Analytics Vidhya (blog), February 15, 2017. https://www.analyticsvidhya.com/blog/2017/02/introduction-to-ensembling-along-with-implementation-in-r/.
+3.Brett Lanz. Machine Learning with R. Second edition. Packt Publishing, n.d.
+
+
+
+
+
+
+
